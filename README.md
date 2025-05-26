@@ -12,6 +12,7 @@ A Python implementation of s3curl with AWS Signature Version 4 support for secur
 - ✅ **Multiple HTTP methods**: GET, PUT, HEAD, DELETE, POST
 - ✅ **Bucket operations**: Create buckets with region constraints
 - ✅ **Object operations**: Upload, download, copy, and delete objects
+- ✅ **Bucket sub-resources**: Access ACL, versioning, lifecycle, object-lock, and more
 - ✅ **ACL support**: Set canned ACLs during uploads
 - ✅ **Content MD5**: Manual or automatic calculation
 - ✅ **Debug capabilities**: Save raw requests/responses for troubleshooting
@@ -98,7 +99,9 @@ chmod 600 ~/.s3curl
 
 ## Examples
 
-### Download an Object (GET)
+### Basic Object Operations
+
+#### Download an Object (GET)
 
 ```bash
 # Download to stdout
@@ -109,9 +112,18 @@ chmod 600 ~/.s3curl
 ./s3curl.py --id personal -- \
   https://my-bucket.s3.eu-north-1.amazonaws.com/myfile.txt \
   > downloaded-file.txt
+
+# Download specific version
+./s3curl.py --id personal -- \
+  "https://my-bucket.s3.eu-north-1.amazonaws.com/myfile.txt?versionId=abc123"
+
+# Download partial content
+./s3curl.py --id personal -- \
+  -H "Range: bytes=0-999" \
+  https://my-bucket.s3.eu-north-1.amazonaws.com/myfile.txt
 ```
 
-### Upload a File (PUT)
+#### Upload a File (PUT)
 
 ```bash
 # Basic upload
@@ -131,7 +143,7 @@ chmod 600 ~/.s3curl
   https://my-bucket.s3.eu-north-1.amazonaws.com/public-file.txt
 ```
 
-### Check Object Metadata (HEAD)
+#### Check Object Metadata (HEAD)
 
 ```bash
 ./s3curl.py \
@@ -141,7 +153,7 @@ chmod 600 ~/.s3curl
   https://my-bucket.s3.eu-north-1.amazonaws.com/myfile.txt
 ```
 
-### Delete an Object
+#### Delete an Object
 
 ```bash
 ./s3curl.py \
@@ -151,7 +163,19 @@ chmod 600 ~/.s3curl
   https://my-bucket.s3.eu-north-1.amazonaws.com/file-to-delete.txt
 ```
 
-### Create a Bucket
+#### Copy an Object
+
+```bash
+./s3curl.py \
+  --id personal \
+  --copySrc "source-bucket/source-key" \
+  -- \
+  https://dest-bucket.s3.eu-north-1.amazonaws.com/dest-key
+```
+
+### Bucket Operations
+
+#### Create a Bucket
 
 ```bash
 # Create bucket in specific region
@@ -162,17 +186,88 @@ chmod 600 ~/.s3curl
   https://my-new-bucket.s3.eu-north-1.amazonaws.com/
 ```
 
-### Copy an Object
+## Advanced S3 Operations
+
+### Bucket Sub-Resources
+
+All bucket-level sub-resource operations follow this general format:
+
+```bash
+./s3curl.py \
+  --id <profileName> \
+  -- \
+  "https://<bucketName>.s3.<region>.amazonaws.com/?<sub-resource>"
+```
+
+The script defaults to GET unless you specify `--put`, `--post`, or `--delete`.
+
+### Common Bucket Sub-Resources
+
+| Sub-resource | Description | Example Command |
+|--------------|-------------|-----------------|
+| `?acl` | Get/Set bucket ACL | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?acl"` |
+| `?versioning` | Get/Set versioning config | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?versioning"` |
+| `?lifecycle` | Get/Set lifecycle policy | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?lifecycle"` |
+| `?website` | Get/Set website hosting config | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?website"` |
+| `?logging` | Get/Set bucket logging config | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?logging"` |
+| `?notification` | Get/Set notification config | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?notification"` |
+| `?replication` | Get/Set cross-region replication | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?replication"` |
+| `?tagging` | Get/Set bucket tag set | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?tagging"` |
+| `?cors` | Get/Set CORS config | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?cors"` |
+| `?policy` | Get/Set bucket policy | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?policy"` |
+| `?analytics` | Manage advanced analytics | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?analytics"` |
+| `?inventory` | Manage bucket inventory | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?inventory"` |
+| `?metrics` | Manage bucket metrics | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?metrics"` |
+| `?publicAccessBlock` | Block public access settings | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?publicAccessBlock"` |
+| `?encryption` | Server-side encryption config | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?encryption"` |
+| `?object-lock` | Object lock configuration | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?object-lock"` |
+| `?location` | Get bucket region location | `./s3curl.py --id personal -- "https://my-bucket.s3.eu-north-1.amazonaws.com/?location"` |
+
+### Object Lock Configuration Example
+
+Get the Object Lock configuration for a bucket:
 
 ```bash
 ./s3curl.py \
   --id personal \
-  --copySrc "source-bucket/source-key" \
   -- \
-  https://dest-bucket.s3.eu-north-1.amazonaws.com/dest-key
+  "https://my-bucket.s3.eu-north-1.amazonaws.com/?object-lock"
 ```
 
-### Upload with Content MD5 Verification
+This returns XML like:
+```xml
+<GetObjectLockConfigurationOutput xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <ObjectLockConfiguration>
+    <ObjectLockEnabled>Enabled</ObjectLockEnabled>
+    <Rule>
+      <DefaultRetention>
+        <Mode>GOVERNANCE</Mode>
+        <Days>30</Days>
+      </DefaultRetention>
+    </Rule>
+  </ObjectLockConfiguration>
+</GetObjectLockConfigurationOutput>
+```
+
+To set an Object Lock configuration, use `--put` with an XML file:
+
+```bash
+./s3curl.py \
+  --id personal \
+  --put object-lock-config.xml \
+  --contentType application/xml \
+  -- \
+  "https://my-bucket.s3.eu-north-1.amazonaws.com/?object-lock"
+```
+
+### Bucket vs Object Operations
+
+- **Bucket sub-resources**: `https://bucket.s3.region.amazonaws.com/?something`
+- **Object operations**: `https://bucket.s3.region.amazonaws.com/key-name`
+
+### Advanced Features
+
+#### Upload with Content MD5 Verification
 
 ```bash
 ./s3curl.py \
@@ -183,7 +278,7 @@ chmod 600 ~/.s3curl
   https://my-bucket.s3.eu-north-1.amazonaws.com/important-file.bin
 ```
 
-### Debug Request/Response
+#### Debug Request/Response
 
 ```bash
 ./s3curl.py \
@@ -195,7 +290,7 @@ chmod 600 ~/.s3curl
   https://my-bucket.s3.eu-north-1.amazonaws.com/myfile.txt
 ```
 
-### Add Custom Headers
+#### Add Custom Headers
 
 ```bash
 ./s3curl.py \
@@ -207,7 +302,7 @@ chmod 600 ~/.s3curl
   https://my-bucket.s3.eu-north-1.amazonaws.com/data.txt
 ```
 
-## Complete Workflow Example
+### Complete Workflow Example
 
 Here's a complete example showing upload, verification, download, and cleanup:
 
@@ -227,14 +322,20 @@ Here's a complete example showing upload, verification, download, and cleanup:
   -- \
   https://test-bucket.s3.eu-north-1.amazonaws.com/somefile.bin
 
-# 3. Download the file
+# 3. Check bucket versioning
+./s3curl.py \
+  --id personal \
+  -- \
+  "https://test-bucket.s3.eu-north-1.amazonaws.com/?versioning"
+
+# 4. Download the file
 ./s3curl.py \
   --id personal \
   -- \
   https://test-bucket.s3.eu-north-1.amazonaws.com/somefile.bin \
   > somefile-downloaded.bin
 
-# 4. Clean up
+# 5. Clean up
 ./s3curl.py \
   --id personal \
   --delete \
@@ -256,12 +357,14 @@ Here's a complete example showing upload, verification, download, and cleanup:
 1. **403 Forbidden**: Check IAM permissions and ensure credentials are correct
 2. **Region errors**: Use `--region` to specify the correct region manually
 3. **Signature errors**: Ensure system clock is synchronized with AWS (within 15 minutes)
+4. **Sub-resource access**: Ensure your IAM permissions include the specific bucket sub-resource operations (e.g., `s3:GetBucketVersioning`, `s3:GetObjectLockConfiguration`)
 
 ### Debug Tips
 
 - Use `--saveRequest debug.txt` to inspect the raw HTTP request and response
 - Use `--debug` for verbose logging of signature calculation
 - Check AWS CloudTrail for detailed API call logs
+- For bucket sub-resources, ensure the URL includes the `?` parameter correctly
 
 ## Contributing
 
