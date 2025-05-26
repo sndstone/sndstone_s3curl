@@ -1,0 +1,6 @@
+awsSecretAccessKeys = {
+    'minio': {
+        'id': 'ev5ve4QDQuhoUNuVENhS',
+        'key': 'TosSmaZGsus6Znmq8Tx8kEwNidyJ44z9RtQTdd51',
+    },
+}
