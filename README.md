@@ -27,9 +27,9 @@ A Python implementation of s3curl with AWS Signature Version 4 support for secur
 
 1. Download the script:
 ```bash
-wget https://raw.githubusercontent.com/your-repo/s3curl.py/main/s3curl.py
+wget https://github.com/sndstone/sndstone_s3curl/main/s3curl.py
 # or
-curl -O https://raw.githubusercontent.com/your-repo/s3curl.py/main/s3curl.py
+curl -O https://github.com/sndstone/sndstone_s3curl/main/s3curl.py
 ```
 
 2. Make it executable:
