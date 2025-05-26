@@ -229,7 +229,8 @@ def validate_url(url: str) -> bool:
 
 
 def dump_request_and_response(prep: requests.PreparedRequest, resp: requests.Response, 
-                             filename: str, timing_info: Optional[Dict[str, float]] = None) -> None:
+                             filename: str, timing_info: Optional[Dict[str, float]] = None,
+                             canonical_request: Optional[str] = None) -> None:
     """Save the actual request & response to a file for debugging"""
     with open(filename, 'wb') as f:
         f.write(b"=== REQUEST ===\n")
@@ -255,6 +256,12 @@ def dump_request_and_response(prep: requests.PreparedRequest, resp: requests.Res
         for hname, hval in resp.headers.items():
             f.write(f"{hname}: {hval}\n".encode('utf-8'))
         f.write(b"\n")
+        
+        # Add canonical request if provided
+        if canonical_request:
+            f.write(b"\n=== CANONICAL REQUEST (Generated) ===\n")
+            f.write(canonical_request.encode('utf-8'))
+            f.write(b"\n")
         
         # Add timing information if available
         if timing_info:
@@ -368,27 +375,17 @@ def sign_and_send(
     port = url_parts.port
     path = url_parts.path or '/'
 
-    # Known S3 subresources
-    known_subresources = [
-        'acl', 'accelerate', 'analytics', 'cors', 'delete', 'encryption', 
-        'inventory', 'lifecycle', 'location', 'logging', 'metrics',
-        'notification', 'partNumber', 'policy', 'publicAccessBlock',
-        'replication', 'requestPayment', 'restore', 'select', 'tagging',
-        'torrent', 'uploadId', 'uploads', 'versionId', 'versioning', 
-        'versions', 'website'
-    ]
-    
+    # Parse all query parameters for signing
     query_dict = {}
     if url_parts.query:
         for kvp in url_parts.query.split('&'):
             if '=' in kvp:
                 k, v = kvp.split('=', 1)
+                query_dict[k] = v
             else:
-                k, v = kvp, ''
-            if k in known_subresources:
-                query_dict[k] = v
-            elif k.startswith('response-'):  # response-* params are subresources
-                query_dict[k] = v
+                # Parameter without value - still include it with empty value
+                k = kvp
+                query_dict[k] = ''
 
     host_with_port = host if port is None else f"{host}:{port}"
 
@@ -448,7 +445,8 @@ def sign_and_send(
         v = query_dict[k]
         ek = quote(k, safe='~')
         ev = quote(v, safe='~')
-        qs_parts.append(f"{ek}={ev}" if v else ek)
+        # Always include = even for empty values
+        qs_parts.append(f"{ek}={ev}")
     canonical_query = '&'.join(qs_parts)
 
     # Sort headers
@@ -466,6 +464,14 @@ def sign_and_send(
         signed_header_names.append(lower_name)
     signed_headers_str = ';'.join(signed_header_names)
 
+    # Add debug logging for canonical request components
+    logging.debug(f"Method: {method}")
+    logging.debug(f"Canonical URI: {canonical_uri}")
+    logging.debug(f"Canonical Query: {canonical_query}")
+    logging.debug(f"Canonical Headers:\n{canonical_headers}")
+    logging.debug(f"Signed Headers: {signed_headers_str}")
+    logging.debug(f"Payload Hash: {payload_hash}")
+    
     canonical_request = (
         f"{method}\n"
         f"{canonical_uri}\n"
@@ -535,7 +541,7 @@ def sign_and_send(
 
     # Save to file if requested
     if save_request:
-        dump_request_and_response(prep, resp, save_request, timing_info)
+        dump_request_and_response(prep, resp, save_request, timing_info, canonical_request)
 
     # Add timing info to response
     resp.timing_info = timing_info
